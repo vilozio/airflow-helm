@@ -19,6 +19,50 @@ airflow:
       AIRFLOW__KUBERNETES__IN_CLUSTER: "True"
       AIRFLOW__KUBERNETES__DELETE_WORKER_PODS: "False"
 
+  ## extra containers for the web/scheduler/worker Pods
+  ##
+  ## EXAMPLE: (a sidecar that syncs DAGs from object storage)
+  ##   extraContainers:
+  ##     - name: s3-sync
+  ##       image: my-user/s3sync:latest
+  ##       volumeMounts:
+  ##     - name: synchronised-dags
+  ##       mountPath: /dags
+  ##
+  extraContainers:
+    - name: gs-sync
+      image: gcr.io/google.com/cloudsdktool/cloud-sdk:alpine
+      volumeMounts:
+        - name: synchronised-dags
+          mountPath: /opt/airflow/dags
+      env:
+      - name: GOOGLE_CLOUD_PROJECT
+        value: elaborate-art-253317
+      - name: GOOGLE_APPLICATION_CREDENTIALS
+        value: /var/secrets/google
+
+  ## extra volumeMounts for the web/scheduler/worker Pods
+  ##
+  ## EXAMPLE:
+  ##   extraVolumeMounts:
+  ##     - name: synchronised-dags
+  ##       mountPath: /opt/airflow/dags
+  ##
+  extraVolumeMounts:
+    - name: synchronised-dags
+      mountPath: /opt/airflow/dags
+
+  ## extra volumes for the web/scheduler/worker Pods
+  ##
+  ## EXAMPLE:
+  ##   extraVolumes:
+  ##     - name: synchronised-dags
+  ##       emptyDir: {}
+  ##
+  extraVolumes:
+    - name: synchronised-dags
+      emptyDir: {}
+
   ## configs to generate the AIRFLOW__KUBERNETES__POD_TEMPLATE_FILE
   ##
   ## NOTE:
