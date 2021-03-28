@@ -1,0 +1,114 @@
+airflow:
+  ## the airflow executor type to use
+  ##
+  ## NOTE:
+  ## - allowed values: "CeleryExecutor", "CeleryKubernetesExecutor", "KubernetesExecutor"
+  ## - if you set KubernetesExecutor or CeleryKubernetesExecutor, we automatically set:
+  ##   - AIRFLOW__KUBERNETES__ENV_FROM_CONFIGMAP_REF [unused from Airflow 2.0+]
+  ##   - AIRFLOW__KUBERNETES__NAMESPACE
+  ##   - AIRFLOW__KUBERNETES__POD_TEMPLATE_FILE
+  ##   - AIRFLOW__KUBERNETES__WORKER_CONTAINER_REPOSITORY
+  ##   - AIRFLOW__KUBERNETES__WORKER_CONTAINER_TAG
+  ##   - AIRFLOW__KUBERNETES__WORKER_SERVICE_ACCOUNT_NAME [unused from Airflow 2.0+]
+  ##
+  executor: KubernetesExecutor
+
+  config:
+      # AIRFLOW__KUBERNETES__WORKER_CONTAINER_IMAGE_PULL_POLICY: "IfNotPresent"
+      AIRFLOW__KUBERNETES__WORKER_PODS_CREATION_BATCH_SIZE: "10"
+      AIRFLOW__KUBERNETES__IN_CLUSTER: "True"
+      AIRFLOW__KUBERNETES__DELETE_WORKER_PODS: "False"
+
+  ## configs to generate the AIRFLOW__KUBERNETES__POD_TEMPLATE_FILE
+  ##
+  ## NOTE:
+  ## - the generated "pod_template.yaml" is only mounted if `airflow.executor` is:
+  ##   "CeleryKubernetesExecutor" or "KubernetesExecutor"
+  ## - values like `dags.gitSync.enabled` are respected by including the required sidecar
+  ##   containers in the template
+  ## - the global `airflow.extraPipPackages` will NOT be installed in any circumstance
+  ## - read the airflow docs for pod-template-file:
+  ##   https://airflow.apache.org/docs/apache-airflow/stable/executor/kubernetes.html#pod-template-file
+  ##
+  kubernetesPodTemplate:
+    ## the full text value to mount as the "pod_template.yaml" file
+    ##
+    ## NOTE:
+    ## - if set, will override all other values
+    ##
+    ## EXAMPLE:
+    ##    stringOverride: |-
+    ##      apiVersion: v1
+    ##      kind: Pod
+    ##      metadata:
+    ##        name: dummy-name
+    ##      spec:
+    ##        containers:
+    ##          - name: base
+    ##            ...
+    ##            ...
+    ##        volumes: []
+    ##
+    stringOverride: |-
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: echoserver
+      spec:
+        containers:
+          - args: []
+            command: []
+            image: python:3.7-alpine
+            imagePullPolicy: IfNotPresent
+            name: echoserver
+            ports: []
+        hostNetwork: false
+        restartPolicy: Never
+        serviceAccountName: 'airflow'
+
+
+###################################
+# Airflow - Celery Worker Configs
+###################################
+workers:
+  ## if the airflow workers StatefulSet should be deployed
+  ##
+  enabled: false  # FALSE bebause we are using KubernetesExecutor
+
+###################################
+# Kubernetes - Service Account
+###################################
+serviceAccount:
+  ## if a Kubernetes ServiceAccount is created
+  ##
+  create: true
+
+  ## the name of the ServiceAccount
+  ##
+  name: "airflow"
+
+  ## annotations for the ServiceAccount
+  ##
+  annotations:
+    iam.gke.io/gcp-service-account: airflow-cluster1@elaborate-art-253317.iam.gserviceaccount.com
+
+###################################
+# Airflow - Flower Configs
+###################################
+flower:
+  ## if the airflow flower UI should be deployed
+  ##
+  enabled: false  # FALSE bebause we are using KubernetesExecutor
+
+###################################
+# Database - Redis Chart
+# - https://github.com/helm/charts/tree/master/stable/redis
+###################################
+redis:
+  ## if the `stable/redis` chart is used
+  ##
+  ## NOTE:
+  ## - set to `false` if using an external redis database
+  ## - set to `false` if `airflow.executor` is `KubernetesExecutor`
+  ##
+  enabled: false  # FALSE bebause we are using KubernetesExecutor
