@@ -11,7 +11,7 @@ airflow:
   ##   - AIRFLOW__KUBERNETES__WORKER_CONTAINER_TAG
   ##   - AIRFLOW__KUBERNETES__WORKER_SERVICE_ACCOUNT_NAME [unused from Airflow 2.0+]
   ##
-  executor: KubernetesExecutor
+  executor: CeleryExecutor
 
   config:
       # AIRFLOW__KUBERNETES__WORKER_CONTAINER_IMAGE_PULL_POLICY: "IfNotPresent"
@@ -21,47 +21,55 @@ airflow:
 
   ## extra containers for the web/scheduler/worker Pods
   ##
-  ## EXAMPLE: (a sidecar that syncs DAGs from object storage)
-  ##   extraContainers:
-  ##     - name: s3-sync
-  ##       image: my-user/s3sync:latest
-  ##       volumeMounts:
-  ##     - name: synchronised-dags
-  ##       mountPath: /dags
+  ## SPEC - Container:
+  ##   https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.20/#container-v1-core
   ##
+  ## Container for DAGs synchronization with Google Storage bucket.
   extraContainers:
     - name: gs-sync
-      image: gcr.io/google.com/cloudsdktool/cloud-sdk:alpine
+      image: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+      command: ["/bin/sh"]
+      # TODO replace <gs-path> with real gs path
+      args: ["-c", "while true; do gsutil rsync -r <gs-path> /opt/airflow/dags; sleep 60;done"]
       volumeMounts:
         - name: synchronised-dags
           mountPath: /opt/airflow/dags
+        - name: airflow-dags
+          mountPath: /var/secrets/google
+          mountPropagation: HostToContainer
+          readOnly: true
       env:
       - name: GOOGLE_CLOUD_PROJECT
-        value: elaborate-art-253317
+        value: <project>
       - name: GOOGLE_APPLICATION_CREDENTIALS
-        value: /var/secrets/google
+        value: /var/secrets/google/key.json
 
   ## extra volumeMounts for the web/scheduler/worker Pods
   ##
-  ## EXAMPLE:
-  ##   extraVolumeMounts:
-  ##     - name: synchronised-dags
-  ##       mountPath: /opt/airflow/dags
+  ## SPEC - VolumeMount:
+  ##  https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.20/#volumemount-v1-core
   ##
   extraVolumeMounts:
     - name: synchronised-dags
       mountPath: /opt/airflow/dags
+#    - name: airflow-dags
+#      mountPath: /var/secrets/google
+#      mountPropagation: HostToContainer
+#      readOnly: true
 
   ## extra volumes for the web/scheduler/worker Pods
   ##
-  ## EXAMPLE:
-  ##   extraVolumes:
-  ##     - name: synchronised-dags
-  ##       emptyDir: {}
+  ## SPEC - Volume:
+  ##   https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.20/#volume-v1-core
   ##
   extraVolumes:
     - name: synchronised-dags
       emptyDir: {}
+    - name: airflow-dags
+      secret:
+        # TODO create service account with access permission to GS bucket
+        secretName: airflow-dags
+
 
   ## configs to generate the AIRFLOW__KUBERNETES__POD_TEMPLATE_FILE
   ##
@@ -114,45 +122,45 @@ airflow:
 ###################################
 # Airflow - Celery Worker Configs
 ###################################
-workers:
-  ## if the airflow workers StatefulSet should be deployed
-  ##
-  enabled: false  # FALSE bebause we are using KubernetesExecutor
+#workers:
+#  ## if the airflow workers StatefulSet should be deployed
+#  ##
+#  enabled: false  # FALSE bebause we are using KubernetesExecutor
 
 ###################################
 # Kubernetes - Service Account
 ###################################
-serviceAccount:
-  ## if a Kubernetes ServiceAccount is created
-  ##
-  create: true
-
-  ## the name of the ServiceAccount
-  ##
-  name: "airflow"
-
-  ## annotations for the ServiceAccount
-  ##
-  annotations:
-    iam.gke.io/gcp-service-account: airflow-cluster1@elaborate-art-253317.iam.gserviceaccount.com
+#serviceAccount:
+#  ## if a Kubernetes ServiceAccount is created
+#  ##
+#  create: true
+#
+#  ## the name of the ServiceAccount
+#  ##
+#  name: "airflow"
+#
+#  ## annotations for the ServiceAccount
+#  ##
+#  annotations:
+#    iam.gke.io/gcp-service-account: <service-account>
 
 ###################################
 # Airflow - Flower Configs
 ###################################
-flower:
-  ## if the airflow flower UI should be deployed
-  ##
-  enabled: false  # FALSE bebause we are using KubernetesExecutor
+#flower:
+#  ## if the airflow flower UI should be deployed
+#  ##
+#  enabled: false  # FALSE bebause we are using KubernetesExecutor
 
 ###################################
 # Database - Redis Chart
 # - https://github.com/helm/charts/tree/master/stable/redis
 ###################################
-redis:
-  ## if the `stable/redis` chart is used
-  ##
-  ## NOTE:
-  ## - set to `false` if using an external redis database
-  ## - set to `false` if `airflow.executor` is `KubernetesExecutor`
-  ##
-  enabled: false  # FALSE bebause we are using KubernetesExecutor
+#redis:
+#  ## if the `stable/redis` chart is used
+#  ##
+#  ## NOTE:
+#  ## - set to `false` if using an external redis database
+#  ## - set to `false` if `airflow.executor` is `KubernetesExecutor`
+#  ##
+#  enabled: false  # FALSE bebause we are using KubernetesExecutor

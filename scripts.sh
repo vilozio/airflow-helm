@@ -4,6 +4,10 @@ gcloud container clusters create cluster-1 --num-nodes=1 --machine-type=n1-stand
 # Configure kubeconfig for the new cluster.
 gcloud container clusters get-credentials cluster-1
 
+# Create secret for service account that can synchronize
+# DAGs from Google Storage Bucket
+kubectl create secret generic airflow-dags --from-file=key.json=<file-path>.json
+
 # Add Airflow repo for Helm.
 helm repo add airflow-stable https://airflow-helm.github.io/charts
 helm repo update
